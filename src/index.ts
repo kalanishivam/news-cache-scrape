@@ -1,65 +1,38 @@
 import { WebSocketServer } from 'ws';
-import * as cheerio from 'cheerio';
-import axios from 'axios';
-import { scrapeStory } from './scraper';
+import { numberOfStoriesPostedInTheLastFiveMinutes, scrapeStory } from './scraper';
+import { RedisSingleton } from './redis/redisClient';
+import { StoryData } from './types';
 
-// const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ port: 8080 });
 
+wss.on("connection", async (socket) => {
+    try {
+        console.log("connected");
+        const redisClient = await RedisSingleton.getInstance().getClient();
+        const stories = await redisClient.get('stories');
+        socket.send(`Hello , the number of stories posted in the last five mintues is : ${numberOfStoriesPostedInTheLastFiveMinutes}`)
+        setInterval(async () => {
+            let storiesToSend : StoryData[] = [];
+        if(stories){
+            storiesToSend = await JSON.parse(stories);
+        }else{
+            await scrapeStory();
+            const storiesFromCache = await redisClient.get('stories');
+            if(!storiesFromCache){
+                console.log(`no stories found in the cache this must never happen`);
+                return;
+            }
+            storiesToSend = await JSON.parse(storiesFromCache);
 
-// const url = 'https://news.ycombinator.com/';
-
-const testfunction = async (timef: Date) => {
-    return Date.now() - timef.getTime();
-}
-
-// wss.on("connection", async (socket) => {
-//     try {
-//         console.log("connected");
-//         const getNews = async () => {
-//             const ans = await testfunction(new Date())
-//             socket.send(`the number of stroeis posted in the past five mintues is : ${ans}`);
-//         }
-//         getNews();
-//         wss.clients.forEach((client) => {
-//             client.send("hello from the loop");
-//         })
-//         socket.on("message", (message) => {
-//             console.log(message.toString());
-//         })
-//     } catch (error) {
-//         console.log(error);
-//     }
-// })
-
-// async function getNews() {
-//     try {
-//         const { data } = await axios.get('https://news.ycombinator.com/');
-//         // console.log(html);
-//         console.log(`this was the data`);
-//         const $ = cheerio.load(data);
-//         console.log(`reached here by the loaded data`);
-//         // table tr td.title .titleline > a
-//         // $('tr.athing.submission').length;
-
-//         $('tr.athing.submission').each((index, element) => {
-//             //     const title = $(element).text();
-//             // const link = $(element).attr('href');
-//             const title = $(element).find('.title .titleline > a').text();
-//             const link = $(element).find('.title .titleline > a').attr('href');
-//             const timestamp = $(element).next('tr').find('.subtext .age').attr('title');
-//             console.log(`the title -- ${title}`);
-//             console.log(`the link -- ${link}`);
-//             console.log(`the timestamp -- ${timestamp?.toString()}`);
-//             console.log(`the type of timestamp -- ${new Date(timestamp?.toString().toString() ?? '')}`);
-//         })
-//         console.log(`the lengh of the tabel is ${$('tr.athing.submission').length}`)
-
-//     } catch (error) {
-//         console.log(error);
-//         console.log(`in the error clause`);
-//     }
-// }
-
-scrapeStory();
-// getNews();
-
+        }
+           wss.clients.forEach((client) => {
+            client.send(JSON.stringify(storiesToSend));
+           })
+         }, 5 * 60 * 1000);
+        socket.on("message", (message) => {
+            console.log(message.toString());
+        })
+    } catch (error) {
+        console.log(error);
+    }
+})
