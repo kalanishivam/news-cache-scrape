@@ -1,20 +1,5 @@
 import { createClient , RedisClientType} from "redis";
 
-// const redisClient = createClient();
-
-// const getRedisClient = async()=>{
-//     try{
-//         if(!redisClient.isOpen){
-//             await redisClient.connect();
-//         }
-//         console.log(`connected to the redis client`);
-//         return redisClient;
-//     }catch(error){
-//         console.log(`error connecting to the redis client`)
-//         console.log(error);
-//     }
-// }
-
 export class RedisSingleton{  // I have created a singlton pattern for redis to ensure no multiple instances of the class or the redis is created
     private static instance: RedisSingleton;
     private client: RedisClientType | null = null;
